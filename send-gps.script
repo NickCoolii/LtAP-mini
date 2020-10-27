@@ -1,0 +1,82 @@
+# set your IMEI here
+:local fakeImei "YOUR_IMEI"
+:global isDebug
+:set $isDebug "off"
+# $isDebug values:
+# "logging" - log to system log
+# "terminal" - log to terminal
+# "off" - none output
+
+:local serverURL "http://livegpstracks.com/mikrotik.php"
+
+:local gpsDateTime
+:local lat
+:local lon
+:local alt
+:local gpsSpeed
+:local bearing
+:local gpsValid
+:local sats
+:local hdop
+:local DateTime
+:local outputURL
+
+#Check and set coordinate format and get data from GPS
+:if ( [/system gps get coordinate-format ] != "dd") do={/system gps set coordinate-format=dd}
+
+/system gps monitor once do={
+:set $gpsDateTime $("date-and-time")
+:set $lat [:pick $latitude 0 7]
+:set $lon [:pick $longitude 0 8]
+:set $alt $("altitude")
+:set $gpsSpeed $("speed")
+:set $bearing $("true-bearing")
+:set $gpsValid $("valid")
+:set $sats $("satellites")
+:set $hdop $("horizontal-dilution")
+}
+
+# Strip post comma value from speed, altitude and bearing
+:set $alt [:pick $alt 0 [:find $alt "."]]
+:set $gpsSpeed ([:pick $gpsSpeed 0 [:find $gpsSpeed "."]].".0")
+:set $bearing ([:pick $bearing 0 [:find $bearing "."]].".0")
+# Reformat Date-Time
+:local symPos
+:set $symPos [:find $gpsDateTime " "]
+:set $DateTime ([:pick $gpsDateTime 0 $symPos]."-".[:pick $gpsDate
+Time ($symPos + 1) [:len $gpsDateTime]])
+:set $outputURL ("$serverURL?imei=$fakeImei&lat=$lat&lon=$lon&timestamp=$DateTime&hdop=$hdop&altitude=$alt&speed=$gpsSpeed&bearing=$bearing")
+
+:if ($isDebug = "terminal") do={
+:put $gpsDateTime
+:put $DateTime
+:put $lat
+:put $lon
+:put $alt
+:put $gpsSpeed
+:put $bearing
+:put $gpsValid
+:put $sats
+:put $hdop
+:put $serverURL
+:put $fakeImei
+:put $outputURL
+}
+
+:if ($isDebug = "logging") do={
+:log info $gpsDateTime
+:log info $DateTime
+:log info $lat
+:log info $lon
+:log info $alt
+:log info $gpsSpeed
+:log info $bearing
+:log info $gpsValid
+:log info $sats
+:log info $hdop
+:log info $serverURL
+:log info $fakeImei
+:log info $outputURL
+}
+
+/tool fetch mode=http url="$outputURL" output=none
